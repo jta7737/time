@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>時計</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gradient-start: #6dd5ed;
+            --gradient-end: #2193b0;
+            --primary-text: #2c3e50;
+            --secondary-text: #555;
+            --container-bg: rgba(255, 255, 255, 0.95);
+            --button-primary-bg: linear-gradient(45deg, #3a7bd5, #00d2ff);
+            --button-secondary-bg: #e9e9e9;
+            --red-gradient-start: #ff8a8a;
+            --red-gradient-end: #ff4b1f;
+            /*【追加】点滅用の暗い赤色*/
+            --red-gradient-dark-start: #e73827;
+            --red-gradient-dark-end: #d32f2f;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            margin: 0;
+            background: linear-gradient(to right top, var(--gradient-start), var(--gradient-end));
+            color: var(--primary-text);
+            text-align: center;
+            font-size: 14px;
+            transition: background 1s ease;
+        }
+
+        /*【追加】点滅アニメーションの定義*/
+        @keyframes blink-red {
+          0% { background: linear-gradient(to right top, var(--red-gradient-start), var(--red-gradient-end)); }
+          50% { background: linear-gradient(to right top, var(--red-gradient-dark-start), var(--red-gradient-dark-end)); }
+          100% { background: linear-gradient(to right top, var(--red-gradient-start), var(--red-gradient-end)); }
+        }
+
+        /*【修正】タイマー終了時にアニメーションを適用*/
+        body.timer-finished {
+            animation: blink-red 2s infinite;
+        }
+
+        .container {
+            position: relative;
+            /*【修正】マージンと横幅の調整*/
+            margin: 2rem auto;
+            width: 380px;
+            padding: 25px 30px;
+            border-radius: 15px;
+            background-color: var(--container-bg);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transform: scale(0.75);
+            overflow: hidden;
+        }
+
+        #clock {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--secondary-text);
+            margin-bottom: 20px;
+        }
+        
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #ddd; }
+        .tab-link { flex-grow: 1; padding: 10px; border: none; background: none; cursor: pointer; font-size: 0.9rem; font-weight: 500; color: var(--secondary-text); transition: color 0.3s, border-bottom 0.3s; border-bottom: 3px solid transparent; white-space: nowrap; }
+        .tab-link.active { color: var(--primary-text); border-bottom: 3px solid #3a7bd5; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        
+        .display { font-family: 'Roboto Mono', monospace; font-size: 2.8rem; font-weight: 500; color: var(--primary-text); margin: 15px 0 25px 0; }
+        .stopwatch-display { font-size: 2.2rem; }
+        .alarm-display { font-size: 2.8rem; letter-spacing: 2px; }
+        
+        .inputs { margin-bottom: 20px; display: flex; justify-content: center; align-items: center; }
+        .inputs input { font-family: 'Noto Sans JP', sans-serif; font-size: 1rem; width: 60px; text-align: center; border: 1px solid #ddd; border-radius: 6px; margin: 0 4px; padding: 8px; -moz-appearance: textfield; }
+        .inputs input[type="time"] { font-family: 'Roboto Mono', monospace; font-size: 1.5rem; width: auto; letter-spacing: 1px;}
+        .inputs input::-webkit-outer-spin-button, .inputs input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .inputs span { font-size: 1rem; color: var(--secondary-text); margin: 0 4px; }
+        .inputs.disabled input { background-color: #f8f8f8; color: #aaa; }
+        
+        .pomodoro-modes { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .pomodoro-modes button { border: 1px solid #ddd; background: #fff; color: var(--secondary-text); padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; }
+        .pomodoro-modes button.active { background: #d4eaff; border-color: #3a7bd5; color: #3a7bd5; font-weight: 700; }
+
+        .controls { display: flex; justify-content: center; gap: 15px; }
+        .controls button { font-family: 'Noto Sans JP', sans-serif; font-size: 0.9rem; font-weight: 700; padding: 10px 0; width: 100px; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
+        .controls button.primary { background: var(--button-primary-bg); color: white; box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2); }
+        .controls button.secondary { background: var(--button-secondary-bg); color: #333; }
+        .controls button:disabled { background: #ccc; cursor: not-allowed; }
+        .controls button:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(0, 123, 255, 0.2); }
+
+        .notification {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6);
+            color: white; display: flex; justify-content: center; align-items: center; font-size: 2.5rem; font-weight: bold;
+            opacity: 0; visibility: hidden; transition: opacity 0.5s, visibility 0.5s; z-index: 10; cursor: pointer;
+        }
+        .notification.show { opacity: 1; visibility: visible; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div id="clock"></div>
+
+        <div class="tabs">
+            <button class="tab-link active" data-tab="timer">タイマー</button>
+            <button class="tab-link" data-tab="stopwatch">ストップウォッチ</button>
+            <button class="tab-link" data-tab="pomodoro">ポモドーロ</button>
+            <button class="tab-link" data-tab="alarm">目覚まし</button>
+        </div>
+
+        <div id="timer-panel" class="tab-panel active">
+            <div id="timer-display" class="display">05:00</div>
+            <div id="timer-inputs" class="inputs">
+                <input type="number" id="minutes-input" min="0" max="99" value="5"><span>分</span>
+                <input type="number" id="seconds-input" min="0" max="59" value="0"><span>秒</span>
+            </div>
+            <div class="controls">
+                <button id="timer-start-btn" class="primary">開始</button>
+                <button id="timer-reset-btn" class="secondary">リセット</button>
+            </div>
+        </div>
+
+        <div id="stopwatch-panel" class="tab-panel">
+            <div id="stopwatch-display" class="display stopwatch-display">00:00:00.0</div>
+            <div class="controls">
+                <button id="stopwatch-start-btn" class="primary">開始</button>
+                <button id="stopwatch-reset-btn" class="secondary">リセット</button>
+            </div>
+        </div>
+
+        <div id="pomodoro-panel" class="tab-panel">
+            <div id="pomodoro-display" class="display">25:00</div>
+            <div class="pomodoro-modes">
+                <button class="mode-btn active" data-time="25">ポモドーロ</button>
+                <button class="mode-btn" data-time="5">短い休憩</button>
+                <button class="mode-btn" data-time="15">長い休憩</button>
+            </div>
+            <div class="controls">
+                <button id="pomodoro-start-btn" class="primary">開始</button>
+                <button id="pomodoro-reset-btn" class="secondary">リセット</button>
+            </div>
+        </div>
+        
+        <div id="alarm-panel" class="tab-panel">
+            <div id="alarm-display" class="display alarm-display">--:--</div>
+            <div class="inputs">
+                <input type="time" id="alarm-input">
+            </div>
+             <div class="controls">
+                <button id="alarm-set-btn" class="primary">セット</button>
+                <button id="alarm-clear-btn" class="secondary" disabled>解除</button>
+            </div>
+        </div>
+
+        <div class="notification" id="notification-message"><p>時間です！</p></div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const body = document.body;
+        const clockElement = document.getElementById('clock');
+        const notificationMessage = document.getElementById('notification-message');
+        const tabLinks = document.querySelectorAll('.tab-link');
+        const tabPanels = document.querySelectorAll('.tab-panel');
+
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            clockElement.textContent = `現在の時刻：${h}:${m}:${s}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function hideNotification() {
+            body.classList.remove('timer-finished');
+            body.style.animation = 'none'; // アニメーションをリセット
+            void body.offsetWidth; // DOMの再描画をトリガー
+            body.style.animation = '';
+            notificationMessage.classList.remove('show');
+        }
+        notificationMessage.addEventListener('click', hideNotification);
+
+        tabLinks.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetPanel = document.getElementById(tab.dataset.tab + '-panel');
+                tabLinks.forEach(t => t.classList.remove('active'));
+                tabPanels.forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                targetPanel.classList.add('active');
+                hideNotification();
+            });
+        });
+
+        // --- Timer Logic ---
+        const timerDisplay = document.getElementById('timer-display');
+        const minutesInput = document.getElementById('minutes-input');
+        const secondsInput = document.getElementById('seconds-input');
+        const timerInputs = document.getElementById('timer-inputs');
+        const timerStartBtn = document.getElementById('timer-start-btn');
+        const timerResetBtn = document.getElementById('timer-reset-btn');
+        let timerInterval, timerRemainingTime = 0, timerTargetTime = 0;
+        let isTimerRunning = false, isTimerPaused = false;
+        function updateTimerDisplayFromInputs() {
+            if (isTimerRunning) return;
+            const m = parseInt(minutesInput.value) || 0;
+            const s = parseInt(secondsInput.value) || 0;
+            timerRemainingTime = (m * 60 + s) * 1000;
+            timerDisplay.textContent = formatTime(timerRemainingTime);
+        }
+        timerStartBtn.addEventListener('click', () => {
+            hideNotification();
+            if (isTimerRunning) {
+                clearInterval(timerInterval); timerRemainingTime = timerTargetTime - Date.now();
+                isTimerRunning = false; isTimerPaused = true; timerStartBtn.textContent = '再開';
+            } else {
+                if (!isTimerPaused) {
+                    const m = parseInt(minutesInput.value) || 0; const s = parseInt(secondsInput.value) || 0;
+                    timerRemainingTime = (m * 60 + s) * 1000;
+                }
+                if (timerRemainingTime <= 0) return;
+                timerTargetTime = Date.now() + timerRemainingTime;
+                isTimerRunning = true; isTimerPaused = false; timerStartBtn.textContent = '停止';
+                timerInputs.classList.add('disabled');
+                timerInterval = setInterval(() => {
+                    timerRemainingTime = timerTargetTime - Date.now();
+                    if (timerRemainingTime <= 0) {
+                        clearInterval(timerInterval); timerDisplay.textContent = '00:00';
+                        body.classList.add('timer-finished'); notificationMessage.classList.add('show');
+                        isTimerRunning = false; isTimerPaused = false; timerStartBtn.textContent = '開始';
+                        timerInputs.classList.remove('disabled');
+                    } else { timerDisplay.textContent = formatTime(timerRemainingTime); }
+                }, 200);
+            }
+        });
+        function resetTimer() {
+            clearInterval(timerInterval); isTimerRunning = false; isTimerPaused = false;
+            timerStartBtn.textContent = '開始'; timerInputs.classList.remove('disabled');
+            updateTimerDisplayFromInputs(); hideNotification();
+        }
+        timerResetBtn.addEventListener('click', resetTimer);
+        [minutesInput, secondsInput].forEach(input => {
+            input.addEventListener('change', updateTimerDisplayFromInputs);
+            input.addEventListener('keyup', updateTimerDisplayFromInputs);
+        });
+        updateTimerDisplayFromInputs();
+
+        // --- Stopwatch Logic ---
+        const stopwatchDisplay = document.getElementById('stopwatch-display');
+        const stopwatchStartBtn = document.getElementById('stopwatch-start-btn');
+        const stopwatchResetBtn = document.getElementById('stopwatch-reset-btn');
+        let stopwatchInterval, stopwatchStartTime = 0, stopwatchElapsedTime = 0, isStopwatchRunning = false;
+        stopwatchStartBtn.addEventListener('click', () => {
+            hideNotification();
+            if (isStopwatchRunning) {
+                clearInterval(stopwatchInterval); stopwatchElapsedTime = Date.now() - stopwatchStartTime;
+                isStopwatchRunning = false; stopwatchStartBtn.textContent = '再開';
+            } else {
+                stopwatchStartTime = Date.now() - stopwatchElapsedTime; isStopwatchRunning = true;
+                stopwatchStartBtn.textContent = '停止';
+                stopwatchInterval = setInterval(() => {
+                    stopwatchDisplay.textContent = formatStopwatchTime(Date.now() - stopwatchStartTime);
+                }, 100);
+            }
+        });
+        function resetStopwatch() {
+            clearInterval(stopwatchInterval); isStopwatchRunning = false; stopwatchElapsedTime = 0;
+            stopwatchStartBtn.textContent = '開始'; stopwatchDisplay.textContent = '00:00:00.0';
+            hideNotification();
+        }
+        stopwatchResetBtn.addEventListener('click', resetStopwatch);
+
+        // --- Pomodoro Logic ---
+        const pomodoroDisplay = document.getElementById('pomodoro-display');
+        const pomodoroModes = document.querySelectorAll('.mode-btn');
+        const pomodoroStartBtn = document.getElementById('pomodoro-start-btn');
+        const pomodoroResetBtn = document.getElementById('pomodoro-reset-btn');
+        let pomodoroInterval, pomodoroRemainingTime = 25 * 60 * 1000, pomodoroTargetTime = 0;
+        let isPomodoroRunning = false, isPomodoroPaused = false;
+        let currentPomodoroTime = 25;
+        pomodoroModes.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (isPomodoroRunning) return;
+                pomodoroModes.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentPomodoroTime = parseInt(btn.dataset.time);
+                resetPomodoro();
+            });
+        });
+        pomodoroStartBtn.addEventListener('click', () => {
+             hideNotification();
+             if (isPomodoroRunning) {
+                clearInterval(pomodoroInterval); pomodoroRemainingTime = pomodoroTargetTime - Date.now();
+                isPomodoroRunning = false; isPomodoroPaused = true; pomodoroStartBtn.textContent = '再開';
+             } else {
+                if (!isPomodoroPaused) { pomodoroRemainingTime = currentPomodoroTime * 60 * 1000; }
+                if (pomodoroRemainingTime <= 0) return;
+                pomodoroTargetTime = Date.now() + pomodoroRemainingTime; isPomodoroRunning = true;
+                isPomodoroPaused = false; pomodoroStartBtn.textContent = '停止';
+                pomodoroInterval = setInterval(() => {
+                    pomodoroRemainingTime = pomodoroTargetTime - Date.now();
+                    if (pomodoroRemainingTime <= 0) {
+                        clearInterval(pomodoroInterval); pomodoroDisplay.textContent = '00:00';
+                        body.classList.add('timer-finished'); notificationMessage.classList.add('show');
+                        isPomodoroRunning = false; isPomodoroPaused = false; pomodoroStartBtn.textContent = '開始';
+                    } else { pomodoroDisplay.textContent = formatTime(pomodoroRemainingTime); }
+                }, 200);
+            }
+        });
+        function resetPomodoro() {
+            clearInterval(pomodoroInterval); isPomodoroRunning = false; isPomodoroPaused = false;
+            pomodoroRemainingTime = currentPomodoroTime * 60 * 1000;
+            pomodoroDisplay.textContent = formatTime(pomodoroRemainingTime);
+            pomodoroStartBtn.textContent = '開始';
+            hideNotification();
+        }
+        pomodoroResetBtn.addEventListener('click', resetPomodoro);
+
+        // --- Alarm Clock Logic ---
+        const alarmDisplay = document.getElementById('alarm-display');
+        const alarmInput = document.getElementById('alarm-input');
+        const alarmSetBtn = document.getElementById('alarm-set-btn');
+        const alarmClearBtn = document.getElementById('alarm-clear-btn');
+        let alarmTime = null;
+        let alarmInterval = null;
+        alarmSetBtn.addEventListener('click', () => {
+            hideNotification();
+            if (alarmInput.value === "") {
+                alert("時間を設定してください。");
+                return;
+            }
+            const [hour, minute] = alarmInput.value.split(':');
+            alarmTime = { hour: parseInt(hour), minute: parseInt(minute) };
+            
+            alarmDisplay.textContent = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            alarmSetBtn.disabled = true;
+            alarmClearBtn.disabled = false;
+            alarmInput.disabled = true;
+
+            alarmInterval = setInterval(checkAlarm, 1000);
+        });
+        alarmClearBtn.addEventListener('click', clearAlarm);
+        function checkAlarm() {
+            if (!alarmTime) return;
+            const now = new Date();
+            if (now.getHours() === alarmTime.hour && now.getMinutes() === alarmTime.minute) {
+                body.classList.add('timer-finished');
+                notificationMessage.classList.add('show');
+                clearAlarm();
+            }
+        }
+        function clearAlarm() {
+            clearInterval(alarmInterval);
+            alarmTime = null;
+            alarmInterval = null;
+            alarmDisplay.textContent = "--:--";
+            alarmSetBtn.disabled = false;
+            alarmClearBtn.disabled = true;
+            alarmInput.disabled = false;
+            alarmInput.value = "";
+        }
+
+        // --- Utility Functions ---
+        function formatTime(ms) {
+            const totalSeconds = Math.ceil(ms / 1000);
+            const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+            const seconds = String(totalSeconds % 60).padStart(2, '0');
+            return `${minutes}:${seconds}`;
+        }
+        function formatStopwatchTime(ms) {
+            const h = String(Math.floor(ms / 3600000)).padStart(2, '0');
+            const m = String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0');
+            const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+            const d = String(Math.floor((ms % 1000) / 100));
+            return `${h}:${m}:${s}.${d}`;
+        }
+    });
+    </script>
+</body>
+</html>
